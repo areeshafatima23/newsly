@@ -1,4 +1,3 @@
-// lib/screens/home_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -8,51 +7,31 @@ import '../provider/news_provider.dart';
 import '../theme/app_theme.dart';
 import '../models/article.dart';
 import '../screens/article_detail_screen.dart';
-import '../screens/urdu_news_screen.dart';
-import '../app_constants.dart';
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class UrduNewsScreen extends StatefulWidget {
+  const UrduNewsScreen({super.key});
+  
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<UrduNewsScreen> createState() => _UrduNewsScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
-  // -1 means Home (Top Headlines)
-  int _selectedCategoryIndex = -1; 
+class _UrduNewsScreenState extends State<UrduNewsScreen> {
   final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (context.read<NewsProvider>().homeArticles.isEmpty) {
-        context.read<NewsProvider>().fetchHomeArticles();
+      if (context.read<NewsProvider>().urduArticles.isEmpty) {
+        context.read<NewsProvider>().fetchUrduNews();
       }
     });
 
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
-        final prov = context.read<NewsProvider>();
-        if (_selectedCategoryIndex == -1) {
-          prov.fetchHomeArticles(loadMore: true);
-        } else {
-          prov.fetchByCategory(AppConstants.categories[_selectedCategoryIndex], loadMore: true);
-        }
+        context.read<NewsProvider>().fetchUrduNews(loadMore: true);
       }
     });
-  }
-
-  void _onCategorySelected(int index, BuildContext context) {
-    setState(() {
-      _selectedCategoryIndex = index;
-    });
-    if (index == -1) {
-      context.read<NewsProvider>().fetchHomeArticles();
-    } else {
-      context.read<NewsProvider>().fetchByCategory(AppConstants.categories[index]);
-    }
-    Navigator.pop(context); // Close Drawer
   }
 
   @override
@@ -64,7 +43,7 @@ class _HomeScreenState extends State<HomeScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: AppTheme.textPrimary),
         title: Text(
-          _selectedCategoryIndex == -1 ? 'Top Headlines' : AppConstants.categoryLabels[_selectedCategoryIndex],
+          'Urdu News (اردو خبریں)',
           style: GoogleFonts.playfairDisplay(
             color: AppTheme.textPrimary,
             fontSize: 22,
@@ -72,13 +51,12 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
-      drawer: _buildDrawer(context),
       body: Consumer<NewsProvider>(
         builder: (context, prov, child) {
-          final articles = _selectedCategoryIndex == -1 ? prov.homeArticles : prov.categoryArticles;
+          final articles = prov.urduArticles;
 
           if (prov.isLoading && articles.isEmpty) {
-            return _buildShimmerLoading();
+             return _buildShimmerLoading();
           }
           if (prov.error.isNotEmpty && articles.isEmpty) {
             return Center(
@@ -93,7 +71,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (articles.isEmpty) {
             return Center(
               child: Text(
-                'No news available.',
+                'No Urdu news available at the moment.',
                 style: GoogleFonts.sourceSans3(color: AppTheme.textSecondary, fontSize: 16),
               ),
             );
@@ -101,13 +79,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
           return RefreshIndicator(
             color: AppTheme.accent,
-            onRefresh: () async {
-              if (_selectedCategoryIndex == -1) {
-                await prov.fetchHomeArticles();
-              } else {
-                await prov.fetchByCategory(AppConstants.categories[_selectedCategoryIndex]);
-              }
-            },
+            onRefresh: () => prov.fetchUrduNews(),
             child: ListView.builder(
               controller: _scrollController,
               padding: const EdgeInsets.all(16),
@@ -119,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Center(child: CircularProgressIndicator(color: AppTheme.accent)),
                   );
                 }
-                return _buildSimpleArticleTile(articles[index], context, prov);
+                return _buildUrduArticleTile(articles[index], context, prov);
               },
             ),
           );
@@ -149,102 +121,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Drawer _buildDrawer(BuildContext context) {
-    return Drawer(
-      backgroundColor: AppTheme.surface,
-      child: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.only(top: 60, bottom: 20, left: 20),
-            color: AppTheme.primary,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text('NEWS', style: GoogleFonts.playfairDisplay(
-                        color: AppTheme.textPrimary, fontSize: 26, fontWeight: FontWeight.bold, letterSpacing: 2)),
-                    Text('LY', style: GoogleFonts.playfairDisplay(
-                        color: AppTheme.accent, fontSize: 26, fontWeight: FontWeight.bold, letterSpacing: 2)),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text('Categories', style: GoogleFonts.sourceSans3(color: AppTheme.textSecondary, fontSize: 14)),
-              ],
-            ),
-          ),
-          Expanded(
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                _buildDrawerItem(
-                  icon: Icons.home_filled,
-                  title: 'Home',
-                  isSelected: _selectedCategoryIndex == -1,
-                  onTap: () => _onCategorySelected(-1, context),
-                ),
-                _buildDrawerItem(
-                  icon: Icons.language,
-                  title: 'Urdu News',
-                  isSelected: false,
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const UrduNewsScreen()));
-                  },
-                ),
-                const Divider(color: AppTheme.divider),
-                ...List.generate(AppConstants.categoryLabels.length, (index) {
-                  return _buildDrawerItem(
-                    icon: _getIconForCategory(AppConstants.categories[index]),
-                    title: AppConstants.categoryLabels[index],
-                    isSelected: _selectedCategoryIndex == index,
-                    onTap: () => _onCategorySelected(index, context),
-                  );
-                }),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDrawerItem({
-    required IconData icon,
-    required String title,
-    required bool isSelected,
-    required VoidCallback onTap,
-  }) {
-    return ListTile(
-      leading: Icon(icon, color: isSelected ? AppTheme.accent : AppTheme.textSecondary),
-      title: Text(
-        title,
-        style: GoogleFonts.sourceSans3(
-          color: isSelected ? AppTheme.accent : AppTheme.textPrimary,
-          fontSize: 16,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        ),
-      ),
-      tileColor: isSelected ? AppTheme.accent.withOpacity(0.1) : null,
-      onTap: onTap,
-    );
-  }
-
-  IconData _getIconForCategory(String category) {
-    switch(category.toLowerCase()) {
-      case 'general': return Icons.public;
-      case 'technology': return Icons.computer;
-      case 'sports': return Icons.sports_soccer;
-      case 'business': return Icons.business_center;
-      case 'entertainment': return Icons.movie;
-      case 'health': return Icons.local_hospital;
-      case 'science': return Icons.science;
-      default: return Icons.category;
-    }
-  }
-
-  Widget _buildSimpleArticleTile(Article article, BuildContext context, NewsProvider prov) {
+  Widget _buildUrduArticleTile(Article article, BuildContext context, NewsProvider prov) {
     bool isSaved = prov.isArticleSaved(article.url);
     return GestureDetector(
       onTap: () {
@@ -268,7 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Stack(
               children: [
@@ -297,7 +174,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 Positioned(
                   top: 10,
-                  right: 10,
+                  left: 10, // Urdu usually has actions on the left
                   child: IconButton(
                     icon: Icon(
                       isSaved ? Icons.bookmark : Icons.bookmark_border,
@@ -313,16 +190,20 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                textDirection: TextDirection.rtl, // Set right-to-left direction for Urdu
                 children: [
                   Row(
+                    textDirection: TextDirection.rtl,
                     children: [
                       Text(
                         article.sourceName,
+                        textDirection: TextDirection.rtl,
                         style: GoogleFonts.sourceSans3(color: AppTheme.accent, fontSize: 12, fontWeight: FontWeight.bold),
                       ),
                       const Spacer(),
                       Text(
                         article.readableDate,
+                        textDirection: TextDirection.rtl,
                         style: GoogleFonts.sourceSans3(color: AppTheme.textSecondary, fontSize: 12),
                       ),
                     ],
@@ -330,15 +211,30 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 8),
                   Text(
                     article.title,
-                    style: GoogleFonts.playfairDisplay(
+                    textDirection: TextDirection.rtl,
+                    style: const TextStyle(
                       color: AppTheme.textPrimary,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      height: 1.3,
+                      height: 1.5,
                     ),
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  if (article.description.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      article.description,
+                      textDirection: TextDirection.rtl,
+                      style: const TextStyle(
+                        color: AppTheme.textSecondary,
+                        fontSize: 14,
+                        height: 1.5,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ],
               ),
             ),

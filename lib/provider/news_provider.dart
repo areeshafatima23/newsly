@@ -1,80 +1,166 @@
-
 // lib/providers/news_provider.dart
 import 'package:flutter/foundation.dart';
 import '../models/article.dart';
 import '../services/news_service.dart';
+import '../services/database_service.dart';
 
 class NewsProvider extends ChangeNotifier {
   final NewsService _newsService = NewsService();
+  final DatabaseService _dbService = DatabaseService();
 
   List<Article> _homeArticles = [];
   List<Article> _trendingArticles = [];
   List<Article> _categoryArticles = [];
   List<Article> _urduArticles = [];
   List<Article> _searchResults = [];
+  List<Article> _savedArticles = [];
 
   bool _isLoading = false;
+  bool _isLoadingMore = false;
   String _error = '';
   String _selectedCategory = 'general';
-  int _currentIndex = 0;
+  
+  // Pagination counters
+  int _homePage = 1;
+  int _trendingPage = 1;
+  int _categoryPage = 1;
+  int _urduPage = 1;
 
   List<Article> get homeArticles => _homeArticles;
   List<Article> get trendingArticles => _trendingArticles;
   List<Article> get categoryArticles => _categoryArticles;
   List<Article> get urduArticles => _urduArticles;
   List<Article> get searchResults => _searchResults;
+  List<Article> get savedArticles => _savedArticles;
   bool get isLoading => _isLoading;
+  bool get isLoadingMore => _isLoadingMore;
   String get error => _error;
   String get selectedCategory => _selectedCategory;
-  int get currentIndex => _currentIndex;
 
-  void setIndex(int i) {
-    _currentIndex = i;
+  NewsProvider() {
+    fetchSavedArticles();
+  }
+
+  Future<void> fetchSavedArticles() async {
+    _savedArticles = await _dbService.getSavedArticles();
     notifyListeners();
   }
 
-  Future<void> fetchHomeArticles() async {
-    _setLoading(true);
+  Future<void> toggleSaveArticle(Article article) async {
+    bool isSaved = await _dbService.isArticleSaved(article.url);
+    if (isSaved) {
+      await _dbService.removeSavedArticle(article.url);
+    } else {
+      await _dbService.saveArticle(article);
+    }
+    await fetchSavedArticles();
+  }
+
+  bool isArticleSaved(String url) {
+    return _savedArticles.any((a) => a.url == url);
+  }
+
+  Future<void> fetchHomeArticles({bool loadMore = false}) async {
+    if (loadMore) {
+      if (_isLoadingMore) return;
+      _isLoadingMore = true;
+      _homePage++;
+      notifyListeners();
+    } else {
+      _setLoading(true);
+      _homePage = 1;
+    }
     try {
-      _homeArticles = await _newsService.getTopHeadlines();
+      final newArticles = await _newsService.getTopHeadlines(page: _homePage);
+      if (loadMore) {
+        _homeArticles.addAll(newArticles);
+      } else {
+        _homeArticles = newArticles;
+      }
       _error = '';
     } catch (e) {
       _error = e.toString();
     }
+    _isLoadingMore = false;
     _setLoading(false);
   }
 
-  Future<void> fetchTrending() async {
-    _setLoading(true);
+  Future<void> fetchTrending({bool loadMore = false}) async {
+    if (loadMore) {
+      if (_isLoadingMore) return;
+      _isLoadingMore = true;
+      _trendingPage++;
+      notifyListeners();
+    } else {
+      _setLoading(true);
+      _trendingPage = 1;
+    }
     try {
-      _trendingArticles = await _newsService.getTrending();
+      final newArticles = await _newsService.getTrending(page: _trendingPage);
+      if (loadMore) {
+        _trendingArticles.addAll(newArticles);
+      } else {
+        _trendingArticles = newArticles;
+      }
       _error = '';
     } catch (e) {
       _error = e.toString();
     }
+    _isLoadingMore = false;
     _setLoading(false);
   }
 
-  Future<void> fetchByCategory(String category) async {
-    _selectedCategory = category;
-    _setLoading(true);
+  Future<void> fetchByCategory(String category, {bool loadMore = false}) async {
+    if (category != _selectedCategory) {
+      _selectedCategory = category;
+      _categoryPage = 1;
+    }
+    if (loadMore) {
+      if (_isLoadingMore) return;
+      _isLoadingMore = true;
+      _categoryPage++;
+      notifyListeners();
+    } else {
+      _setLoading(true);
+      if (_categoryPage > 1 && !loadMore) _categoryPage = 1;
+    }
     try {
-      _categoryArticles = await _newsService.getByCategory(category);
+      final newArticles = await _newsService.getByCategory(category, page: _categoryPage);
+      if (loadMore) {
+        _categoryArticles.addAll(newArticles);
+      } else {
+        _categoryArticles = newArticles;
+      }
       _error = '';
     } catch (e) {
       _error = e.toString();
     }
+    _isLoadingMore = false;
     _setLoading(false);
   }
 
-  Future<void> fetchUrduNews() async {
-    _setLoading(true);
+  Future<void> fetchUrduNews({bool loadMore = false}) async {
+    if (loadMore) {
+      if (_isLoadingMore) return;
+      _isLoadingMore = true;
+      _urduPage++;
+      notifyListeners();
+    } else {
+      _setLoading(true);
+      _urduPage = 1;
+    }
     try {
-      _urduArticles = await _newsService.getUrduNews();
+      final newArticles = await _newsService.getUrduNews(page: _urduPage);
+      if (loadMore) {
+        _urduArticles.addAll(newArticles);
+      } else {
+        _urduArticles = newArticles;
+      }
       _error = '';
     } catch (e) {
       _error = e.toString();
     }
+    _isLoadingMore = false;
     _setLoading(false);
   }
 
@@ -95,7 +181,9 @@ class NewsProvider extends ChangeNotifier {
   }
 
   void _setLoading(bool val) {
-    _isLoading = val;
-    notifyListeners();
+    if (_isLoading != val) {
+      _isLoading = val;
+      notifyListeners();
+    }
   }
 }

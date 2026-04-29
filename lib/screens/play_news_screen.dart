@@ -17,6 +17,7 @@ class PlayNewsScreen extends StatefulWidget {
 
 class _PlayNewsScreenState extends State<PlayNewsScreen> {
   final FlutterTts _flutterTts = FlutterTts();
+  final ScrollController _scrollController = ScrollController();
   bool _isPlaying = false;
   bool _showPlayer = false;
   Article? _currentArticle;
@@ -29,6 +30,12 @@ class _PlayNewsScreenState extends State<PlayNewsScreen> {
   void initState() {
     super.initState();
     _initTts();
+
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+        context.read<NewsProvider>().fetchHomeArticles(loadMore: true);
+      }
+    });
   }
 
   void _initTts() async {
@@ -50,6 +57,7 @@ class _PlayNewsScreenState extends State<PlayNewsScreen> {
   @override
   void dispose() {
     _flutterTts.stop();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -144,7 +152,7 @@ class _PlayNewsScreenState extends State<PlayNewsScreen> {
           padding: EdgeInsets.symmetric(horizontal: 24.0),
           child: Divider(color: AppTheme.divider, thickness: 1.5),
         ),
-        if (prov.isLoading)
+        if (prov.isLoading && articles.isEmpty)
           const Expanded(child: Center(child: CircularProgressIndicator(color: AppTheme.accent)))
         else if (articles.isEmpty)
           Expanded(
@@ -158,9 +166,16 @@ class _PlayNewsScreenState extends State<PlayNewsScreen> {
         else
           Expanded(
             child: ListView.builder(
+              controller: _scrollController,
               padding: const EdgeInsets.all(16),
-              itemCount: articles.length,
+              itemCount: articles.length + (prov.isLoadingMore ? 1 : 0),
               itemBuilder: (context, index) {
+                if (index == articles.length) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Center(child: CircularProgressIndicator(color: AppTheme.accent)),
+                  );
+                }
                 final article = articles[index];
                 return GestureDetector(
                   onTap: () => _openPlayer(article),
