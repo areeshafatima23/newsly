@@ -1,3 +1,4 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class AppConstants {
   // ── Replace with your actual News API key ──────────────────
@@ -5,8 +6,8 @@ class AppConstants {
   static const String newsApiBase = 'https://newsapi.org/v2';
 
   // ── Replace with your Gemini API key ──────────────────────
-  // static const String geminiApiKey = 'YOUR_GEMINI_API_KEY_HERE';
-  static const String geminiApiKey = 'AIzaSyAg0ncqmJ60S5--jBFd8Fiei-5Tt-kInx0';
+  static String geminiApiKey =
+      dotenv.env['GEMINI_API_KEY'] ?? '';
 
   static const List<String> categories = [
     'general', 'technology', 'sports', 'business', 'entertainment', 'health', 'science',

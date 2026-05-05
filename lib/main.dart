@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import 'theme/app_theme.dart';
 import 'provider/news_provider.dart';
 import 'screens/splash_screen.dart';
-
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -18,10 +18,12 @@ class MyHttpOverrides extends HttpOverrides {
   }
 }
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  HttpOverrides.global = MyHttpOverrides(); // Bypass SSL handshake issues on desktop
+  await dotenv.load(fileName: ".env");
+
+  HttpOverrides.global = MyHttpOverrides();
 
   if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
     sqfliteFfiInit();
